@@ -164,7 +164,7 @@ shinyApp(ui,server)
 # Insert Image ############################################
 ui <- fluidPage(
   fluidRow(
-    column(3, img(src = "quokka2.png", width = "100%")),
+    column(3, img(src = "quokka2.png", width = "100%")), #png?
     column(9,
            sliderInput('obs', 'No. of Random Numbers', min = 30, max = 100, value = 50, width = '100%'),
            plotOutput('myplot', width ='100%'))
