@@ -1,11 +1,11 @@
-#install.packages('shiny')
-#install.packages('shinydashboard')
-#install.packages('tidy')
+# install.packages('shiny')
 library(shiny)
 library(shinydashboard)
 library(MASS)
 library(tidyverse)
 library(broom)
+library(ggplot2)
+library(stringr)
 
 # 입출력위젯
 ui <- fluidPage(
@@ -164,7 +164,7 @@ shinyApp(ui,server)
 # Insert Image ############################################
 ui <- fluidPage(
   fluidRow(
-    column(3, img(src = "quokka2.png", width = "100%")), #png?
+    column(3, img(src = "quokka2.png", width = "100%")), #주소때문인가?
     column(9,
            sliderInput('obs', 'No. of Random Numbers', min = 30, max = 100, value = 50, width = '100%'),
            plotOutput('myplot', width ='100%'))
@@ -178,4 +178,159 @@ server <- function(input, output, session){
 }
 
 shinyApp(ui, server)
+
+
+# conditionalPanel ##########################################
+ui <- fluidPage(
+  titlePanel("diamonds 데이터"),
+  selectInput(
+    "plotType", "Plot Type", c(Scatter = "scatter", Histogram = "hist")),
+  conditionalPanel( # 참일 때만 실행됨 , $를 쓰는 거 처럼 java에서는 .으로 이용
+    condition = "input.plotType == 'hist'", #  hist로 선택되었을 때만 실행되는 조건 패널
+    selectInput( "breaks","Breaks", 
+      c("Sturges", "Scott", "Freedman-Diaconis","[Custom]" = "custom")),
+    conditionalPanel(
+      condition = "input.breaks == 'custom'",
+      sliderInput("breakCount","Break Count", min = 1, max = 1000, value = 10) 
+      )
+    ),
+  plotOutput("plot") # 플롯이 표시될 출력 영역 정의
+)
+
+server <- function(input, output, session){
+  brs <- reactive({ # reactive 입력 값에 따라 동적으로 반응하는 리액티브 객체
+    if(input$breaks == "custom"){ # break에 대한 조건문
+      input$breakCount
+    } else{
+      input$breaks
+    }
+  })
+  p <- reactive({ # plotType에 대한 조건문(scatter인데 breaks가 왜 나오나 했네..)
+    if(input$plotType == "scatter"){
+      plot(diamonds$carat, diamonds$price, col = "red")
+      } else{ 
+        hist(diamonds$carat, breaks = brs())
+        }
+    })
+  output$plot <- renderPlot({
+    p()
+    })
+}
+
+shinyApp(ui, server)
+
+# 6-2. renderUI(), uiOutput() ##############################
+ui <- fluidPage(
+  uiOutput("moreControls") #  동적으로 UI를 추가할 수 있는 영역을 추가(?)
+)
+
+server <- function(input, output){
+  output$moreControls <- renderUI({ 
+    tagList(
+      sliderInput("n","N",1,1000,500), textInput("label", "Label")
+    )
+  })
+}
+shinyApp(ui, server)
+
+##
+ui <- fluidPage(
+  titlePanel("Which one would you like to choose?"),
+  radioButtons("selected", "table or plot",
+               choices = list("table", "plot")),
+  uiOutput("tbl2"),
+  uiOutput("plot2")
+  )
+
+server <- function(input, output, session){
+  output$tbl <- renderTable({ mtcars })
+  output$tbl2 <- renderUI({
+    if(input$selected == "table"){
+      tableOutput("tbl")
+    }
+  })
+  output$plt <- renderPlot({ plot(mtcars$wt, mtcars$mpg) })
+  output$plot2 <- renderUI({
+    if(input$selected == "plot") {
+      plotOutput("plt")
+    }
+  })
+}
+shinyApp(ui, server)
+
+# 6-3 UI 삽입/삭제#######################################3
+# INSERT
+ui <- fluidPage(
+  actionButton("add","Add UI")
+)
+server <- function(input, output, session){
+  observeEvent(input$add,{
+    insertUI(
+      selector = "#add", #삽입한 UI의 위치를 정하는 기준이 되는 인수
+      where = "afterEnd", # default = beforeEnd
+      ui = textInput(paste0("txt", input$add), "Insert some text") # text widget
+    )
+  })
+}
+shinyApp(ui, server)
+
+# DELETE
+ui <- fluidPage(
+  actionButton("rmv", "Remove UI"),
+  textInput("txt", "This is no longer useful")
+)
+server <- function(input, output, session){
+  observeEvent(input$rmv,{
+    removeUI(
+      selector = "div:has(>#txt)" 
+      # div:has(>#txt)는 <div> 요소들을 선택하는데, 그 자식요소가 txt라는 아이디(#)를 가진 것을 선택함(jQuery의 콘텐츠 필터)
+    )
+  })
+}
+shinyApp(ui, server)
+
+# 6-4 insertUI, removeUI ################################
+ui <- fluidPage(
+  actionButton("add","Add UI"),
+  verbatimTextOutput("allText")
+)
+
+server <- function(input, output, session){
+  observeEvent(input$add,{
+    insertUI( select = "#add", where = "afterEnd",
+              ui = textInput(paste0("txt", input$add),
+                             "Insert some text", placeholder = "문자를 입력하세요.")
+              # textInput의 아이디는 "txt1", "txt2", ...와 같이 순차적으로 생성
+              )
+  } )
+  
+  output$allText <- renderPrint({
+    # output$allText <- renderPrint({...}): 동적으로 추가된 모든 텍스트 입력 상자에 입력된 내용 출력
+    req(input$add)
+    txts <- unlist(lapply(seq(1, input$add), function(x) paste0("txt",x)))
+    paste(unlist(lapply(txts, function(x) str_trim(input[[x]]))), collapse = " ")
+  })
+}
+shinyApp(ui, server)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
