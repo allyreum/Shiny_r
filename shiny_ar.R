@@ -313,22 +313,120 @@ server <- function(input, output, session){
 }
 shinyApp(ui, server)
 
+# chapter 7 ###############################
+ui <- fluidPage(
+  textInput("myText", "텍스트 입력"),
+  textOutput("result") #c
+)
 
+server <- function(input, output, session){
+  output$result <- renderText({
+    input$myText
+  })
+}
+shinyApp(ui, server) # 입력한 값이 그대로 출력됨
 
+# 3-2. 반응성 맥락 > render(), reactive(), observe()
+myData <- mtcars
+ui <- fluidPage(
+  numericInput('sel', 'mtcars 데이터 행의 개수 입력', value = 7, min =6, max = nrow(myData)),
+  tableOutput('input_data_name')
+)
 
+server <- function(input, output, session){
+  output$input_data_name <- renderTable({ # 반응성 맥락
+    head(myData, n = input$sel) # value = n
+  })
+}
+shinyApp(ui, server) 
 
+ui <- fluidPage(
+  numericInput('sel', 'mtcars 데이터 행의 개수 입력', value = 6, min =6, max = nrow(myData)),
+  tableOutput('carData')
+)
+server <- function(input, output, session){
+  output$carData <- renderTable({
+    head(myData, input$sel)
+  })
+  tryCatch({ # 비반응성 맥락
+    x <- input$sel # 입력값을 변경하면서 발생할 수 있는 예외를 처리하기 위해 tryCatch 이용
+  }, error = function(c) cat(c$message)) # cat(c$message)는 개발자에게는 콘솔을 통해 예외 메시지를 확인
+}
 
+# minimum limit
+server <- function(input, output, session){
+  output$carData <- renderTable({
+    if (input$sel < 6) {
+      cat("선택 가능한 최소값은 6입니다.\n")
+      return(NULL) # 사용자에게는 안보임
+    }
+    head(myData, input$sel)
+  })
+}
 
+shinyApp(ui, server)
 
+#3-4. 반응성 표현식 ###############################
+ui <- fluidPage(
+  titlePanel("간단한 계산을 위한 앱"),
+  wellPanel(p("숫자 2개와 계산법을 선택하세요.")),
+  textInput("num1","첫번째 숫자"),
+  textInput("num2","두번째 숫자"),
+  radioButtons("cal", "계산법의 선택", c("+"="더하기", "-"="빼기", "*"="곱하기", "/"="나누기"),
+               inline=TRUE),
+  h2("결과"),
+  textOutput("result")
+)
 
+server <- function(input, output,session){
+  outputTxt <- reactive({
+    req(input$num1, input$num2) # NULL이 아닌지, 비어있지 않은지>> null이면 실행안됨
+    num1 <- as.numeric(input$num1)
+    num2 <- as.numeric(input$num2)
+    switch(input$cal, # 함수 반환값
+           "더하기" = {paste(num1, "+", num2, "=", num1+num2)},
+           "빼기" = {paste(num1, "-", num2, "=", num1-num2)},
+           "곱하기" = {paste(num1, "*", num2, "=", num1*num2)},
+           "나누기" = {paste(num1, "/", num2, "=", round(num1/num2,2))}
+           )
+  })
+  output$result <- renderText({
+    outputTxt() # reactive함수 호출.  outputTxt의 값을 얻어와서 output$result를 업데이트하라는 의미
+  })
+}
+shinyApp(ui,server)
 
+# 3-5. reactive observer ##########################
+ui <- fluidPage(
+  titlePanel("계산기 app"),
+  wellPanel(p("숫자2개와 계산법을 선택하세요.")),
+  textInput("obs1","숫자1"),
+  textInput("obs2","숫자2"),
+  radioButtons("cal", "계산법의 선택",c("+"="더하기", "-"="빼기", "*"="곱하기", "/"="나누기"),
+               inline = TRUE),
+  h2("결과"),
+  textOutput("result") )
 
-
-
-
-
-
-
+server <- function(input, output, session){
+  outputTxt <- reactive({
+    req(input$obs1, input$obs2)
+    obs1 <- as.numeric(input$obs1)
+    obs2 <- as.numeric(input$obs2)
+    switch(input$cal, 
+           "더하기" = {paste(obs1, "+", obs2, "=", obs1+obs2)},
+           "빼기" = {paste(obs1, "-", obs2, "=", obs1-obs2)},
+           "곱하기" = {paste(obs1, "*", obs2, "=", obs1*obs2)},
+           "나누기" = {paste(obs1, "/", obs2, "=", round(obs1/obs2,2))} )
+  })
+  output$result <- renderText({
+    outputTxt()
+  })
+  observe({ # console이 안나오는데...^_ㅜ
+    cat(outputTxt(),"\n")
+    # showNotification(outputTxt())
+  })
+}
+shinyApp(ui,server)
 
 
 
