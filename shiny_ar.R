@@ -428,7 +428,27 @@ server <- function(input, output, session){
 }
 shinyApp(ui,server)
 
+# 4. 무효화(invalidation) ########################################
+values <- reactiveValues(a=3) # reactiveValues()눈 반응성 값을 만든다!!+ values$a
+isolate(values$a)
+b <- isolate(values$a + 4)
+isolate(b)
 
+values$a <- 5
+isolate(values$a)
+isolate(b) # 9가 아닌 7의 값을 갖음
+# 유효화 상태: values$a 값이 반영되어 객체 b의 값이 확정된 상태
+#무효화 상태:  values$a 값이 변경되었지만, 아직 values$a + 4가 실행되지 않아서 객체b의 값이 확정되지 못한 상태
 
+# how to automatically make  invalidation > validation? by reactive()
+values2 <- reactiveValues(aa =3)
+isolate(values2$aa)
+bb <- reactive({
+  values2$aa + 4
+})
+isolate(bb())
 
-
+obsB <- observe({
+  print(values2$aa + 4)
+})
+shiny:::flushReact()
