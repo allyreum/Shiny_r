@@ -6,7 +6,156 @@ library(tidyverse)
 library(broom)
 library(ggplot2)
 library(stringr)
+library(dplyr)
 
+
+subset(mtcars, mpg > mean(mpg))
+
+x <- quote(1+5) # quote() 인용 > 1+5
+eval(x) # 1+5한 6이 뜸
+
+summarise_(mtcars, ~ mean(mpg))
+summarise_(mtcars, quote(mean(mpg)))
+summarise_(mtcars, "mean(mpg)")
+
+ui <- fluidPage(
+  selectInput("sel","선택",c("mpg","cyl","am")),
+  verbatimTextOutput("txt")
+)
+
+server <- function(input,output,session){
+  output$txt <- renderPrint({
+    summarise_(mtcars, "평균" = paste0("mean(",input$sel,")" ))
+  })
+}
+
+shinyApp(ui, server)
+
+ui <- fluidPage(
+  selectInput("sel","선택",c("cyl","am")),
+  plotOutput("plot")
+)
+
+server <- function(input,output,session){
+  output$plot <- renderPlot({
+    ggplot(mtcars) + 
+      geom_point(aes_string("wt","mpg",color = paste0("factor(",input$sel,")"))) +
+      #aes_string() 좌표계에 매핑할 변수의 이름을 심볼이 아닌 문자열로 지정하는 함수
+      labs(color = input$sel)
+  })
+}
+
+shinyApp(ui, server)
+
+
+# x1,...x10까지 생성& x1 =1,... x10=10을 생성할 때는 assign을 사용하자!
+for(i in 1:10){
+  vs <- paste0("x",i)
+  assign(vs,i)
+}
+
+
+df <- mtcars %>% select(wt, mpg, cyl, vs, am, gear, carb) %>% mutate_at(3:7, as.factor)
+# mutate_at()은 지정한 변수들에 대해 계산식을 적용
+
+ui <- fluidPage(
+  selectInput("sel","그룹선택", choices = c("cyl","vs","am","gear","carb")),
+  plotOutput("carplot"),
+  verbatimTextOutput("caranova")
+)
+
+
+server <- function(input,output){
+  df_sub <- reactive({
+    df[,c("wt", "mpg", input$sel)]
+  })
+  
+  output$carplot <- renderPlot({
+    category <-input$sel
+    ggplot(df_sub(),aes(wt,mpg)) + 
+      geom_point(aes_(color = as.name(category)),size = 3) +
+      geom_smooth(method = "lm")
+  })
+  
+  output$caranova <- renderPrint({
+    formul <- as.formula(paste("mpg~wt", "+", input$sel))
+    anova(lm(formul,df_sub()))
+  })
+}
+
+
+shinyApp(ui, server)
+
+
+mpgdata <- mtcars
+mpgdata$am <- factor(mpgdata$am, labels = c("Automatic","Manual"))
+
+ui <- fluidPage(
+  titlePanel('Miles Per Gallon'),
+  sidebarLayout(
+    sidebarPanel(
+      selectInput('variable', "Variable:",
+                  c("Cylindes" = "cyl",
+                    "Transmission" = "am",
+                    "Gears" = "gear")),
+      checkboxInput("outliers","Show outliers",FALSE)
+    ),
+    mainPanel(
+      h3(textOutput('caption')),
+      plotOutput('mpgplot')
+    )
+  )
+)
+
+server <- function(input, output){
+  formulaText <- reactive({
+    paste("mpg ~", input$variable)
+  })
+  output$caption <- renderText({
+    formulaText()
+  })
+  output$mpgplot <- renderPlot({
+    boxplot(as.formula(formulaText()),
+            data = mpgdata,
+            outline = input$outliers)
+  })
+}
+
+shinyApp(ui,server)
+
+
+
+
+# 15 스콥과 시야(visibility)
+
+ui<- fluidPage(
+  titlePanel('I want to go  home'),
+  sidebarLayout(
+    sidebarPanel(
+      sliderInput('bins',
+                  'Number of bins:',
+                  min =1, max =50, value = 30)
+    ),
+    mainPanel(
+      plotOutput('distPlot')
+    )
+  )
+)
+
+server <- function(input, output) {
+  output$distPlot <- renderPlot({
+    x <- faithful[,2]
+    bins <- seq(min(x),max(x), length.out = input$bins +1)
+    hist(x, breaks = bins, col = 'darkgray', border = 'white')
+  })
+}
+
+shinyApp(ui,server)
+
+
+
+
+###########################################################
 # 입출력위젯
 ui <- fluidPage(
   numericInput("sel", "input value", value = 50, min = 40, max = 100),
